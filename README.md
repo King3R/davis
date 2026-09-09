@@ -1,10 +1,13 @@
 Davis
 ---
 
-[![Build Status][ci_badge]][ci_link]
+[![Build Status](https://github.com/tchapi/davis/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tchapi/davis/actions/workflows/ci.yml)
 [![Publish Docker image](https://github.com/tchapi/davis/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/tchapi/davis/actions/workflows/main.yml)
-[![Latest release][release_badge]][release_link]
-[![Sponsor me][sponsor_badge]][sponsor_link]
+[![Latest release](https://img.shields.io/github/v/release/tchapi/davis?cacheSeconds=3600)](https://github.com/tchapi/davis/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/tchapi/davis/blob/main/LICENSE)
+![Platform](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-blue?logo=docker)
+![PHP Version](https://img.shields.io/badge/php-8.2%20%7C%208.3%20%7C%208.4-777BB4?logo=php&logoColor=white)
+[![Sponsor me](https://img.shields.io/badge/sponsor%20me-🙏-blue?logo=paypal)](https://paypal.me/tchap)
 
 A modern, simple, feature-packed, fully translatable DAV server, admin interface and frontend based on `sabre/dav`, built with [Symfony 7](https://symfony.com/) and [Bootstrap 5](https://getbootstrap.com/), initially inspired by [Baïkal](https://github.com/sabre-io/Baikal) (_see dependencies table below for more detail_)
 
@@ -46,7 +49,7 @@ Comes with already built Docker images in two flavours: [standalone](https://git
 
 # 🔩 Requirements
 
-  - PHP > 8.2 (with `pdo_mysql` [or `pdo_pgsql`, `pdo_sqlite`], `gd` and `intl` extensions), compatible up to PHP 8.3 (_See dependencies table below_)
+  - PHP > 8.2 (with `pdo_mysql` [or `pdo_pgsql`, `pdo_sqlite`], `gd` and `intl` extensions), compatible up to PHP 8.5 (_See dependencies table below_)
   - A compatible database layer, such as MySQL or MariaDB (recommended), PostgreSQL (not extensively tested yet) or SQLite (not extensively tested yet)
   - Composer > 2 (_The last release compatible with Composer 1 is [v1.6.2](https://github.com/tchapi/davis/releases/tag/v1.6.2)_)
   - The [`imap`](https://www.php.net/manual/en/imap.installation.php) and [`ldap`](https://www.php.net/manual/en/ldap.installation.php) PHP extensions if you want to use either authentication methods (_these are not enabled / compiled by default except in the Docker image_)
@@ -109,7 +112,7 @@ Create your own `.env.local` file to change the necessary variables, if you plan
 > In a production environnement, the `APP_ENV` variable MUST be set to `prod` to prevent leaking sensitive data.
 
 **a. The database driver and url** (_you should already have it configured since you created the database previously_)
-    
+
 ```shell
 DATABASE_DRIVER=mysql # or postgresql, or sqlite
 DATABASE_URL=mysql://db_user:db_pass@host:3306/db_name?serverVersion=10.9.3-MariaDB&charset=utf8mb4
@@ -149,11 +152,20 @@ PUBLIC_CALENDARS_ENABLED=true
 > By default, `PUBLIC_CALENDARS_ENABLED` is true. That doesn't mean that all calendars are public by default — it just means that you have an option, upon calendar creation, to set the calendar public (but it's not public by default).
 
 
-**e. The email address that your invites are going to be sent from**
+**e. Mailer configuration**
+
+It includes:
+  - the mailer uri (`MAILER_DSN`)
+  - The email address that your invites are going to be sent from
 
 ```shell
+MAILER_DSN=smtp://user:pass@smtp.example.com:port
 INVITE_FROM_ADDRESS=no-reply@example.org
 ```
+
+> [!WARNING]
+> If the username, password or host contain any character considered special in a URI (such as `: / ? # [ ] @ ! $ & ' ( ) * + , ; =`), you MUST encode them.
+> See [here](https://symfony.com/doc/current/mailer.html#transport-setup) for more details.
 
 **f. The reminder offset for all birthdays**
 
@@ -213,7 +225,7 @@ APP_TIMEZONE=Australia/Lord_Howe
 > ```shell
 > APP_TIMEZONE=
 > ```
-> in your environment file if you wish to use the **actual default timezone of the server**, and not enforcing it. 
+> in your environment file if you wish to use the **actual default timezone of the server**, and not enforcing it.
 
 **j. Trusting forwarded headers**
 
@@ -316,6 +328,16 @@ The main endpoint for CalDAV, WebDAV or CardDAV is at `/dav`.
 > [!TIP]
 >
 > For shared hosting, the `symfony/apache-pack` is included and provides a standard `.htaccess` file in the public directory so redirections should work out of the box.
+
+## API Endpoint
+
+For user and calendar management there is an API endpoint. See [the API documentation](docs/api/README.md) for more information.
+
+> [!TIP]
+>
+> The API endpoint requires an environment variable `API_KEY` set to a secret key that you will use in the `X-Davis-API-Token` header of your requests to authenticate. You can generate it with `bin/console api:generate`
+
+## Webserver Configuration Examples
 
 ### Example Caddy 2 configuration
 
@@ -444,7 +466,7 @@ To build the checked out version, just run:
     docker build --pull --file docker/Dockerfile --tag davis:latest --build-arg fpm_user=82:82 .
 
 > [!TIP]
-> 
+>
 > The `fpm_user` build arg allows to set:
 >  - the uid FPM will run with
 >  - the owner of the app folder
@@ -457,7 +479,7 @@ This will build a `davis:latest` image that you can directly use. Do not forget 
 You can use `--platform` to specify the platform to build for. Currently, `arm64` (ARMv8) and `amd64` (x86) are supported.
 
 > [!IMPORTANT]
-> 
+>
 > ⚠ Do not forget to run all the database migrations the first time you run the container :
 >
 >     docker exec -it davis sh -c "APP_ENV=prod bin/console doctrine:migrations:migrate --no-interaction"
@@ -487,7 +509,7 @@ docker pull ghcr.io/tchapi/davis:edge
 ```
 
 > [!WARNING]
-> 
+>
 > The `edge` image must not be considered stable. **Use only release images for production setups**.
 
 ## Full stack
@@ -503,13 +525,13 @@ You can start the containers with :
 > The default recipe above uses MariaDB.
 
 > [!IMPORTANT]
-> 
+>
 > ⚠ Do not forget to run all the database migrations the first time you run the container :
 >
 >     docker exec -it davis sh -c "APP_ENV=prod bin/console doctrine:migrations:migrate --no-interaction"
 
 > [!WARNING]
-> 
+>
 > For SQLite, you must also make sure that the folder the database will reside in AND the database file in itself have the right permissions! You can do for instance:
 > `chown -R www-data: /data` if `/data` is the folder your SQLite database will be in, just after you have run the migrations
 
@@ -557,7 +579,7 @@ If you change or add translations, you need to update the `messages` XLIFF file 
 
 You can use:
 
-    ./bin/phpunit
+    ./vendor/bin/phpunit
 
 ## ✨ Code linting
 
@@ -664,12 +686,3 @@ _This project does not use any pipeline for the assets since the frontend side i
 # ⚖️ Licence
 
 This project is release under the MIT licence. See the LICENCE file
-
-[ci_badge]: https://github.com/tchapi/davis/workflows/CI/badge.svg
-[ci_link]: https://github.com/tchapi/davis/actions?query=workflow%3ACI
-
-[sponsor_badge]: https://img.shields.io/badge/sponsor%20me-🙏-blue?logo=paypal
-[sponsor_link]: https://paypal.me/tchap
-
-[release_badge]: https://img.shields.io/github/v/release/tchapi/davis
-[release_link]: https://github.com/tchapi/davis/releases

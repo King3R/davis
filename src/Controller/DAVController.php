@@ -248,6 +248,7 @@ class DAVController extends AbstractController
 
         $aclPlugin = new PublicAwareDAVACLPlugin($this->em, $this->publicCalendarsEnabled);
         $aclPlugin->hideNodesFromListings = true;
+        $aclPlugin->allowUnauthenticatedAccess = true; // Already the default, but setting it is future-proof
 
         // Fetch admins, if any
         $admins = $this->em->getRepository(Principal::class)->findBy(['isAdmin' => true]);
@@ -281,7 +282,7 @@ class DAVController extends AbstractController
         }
 
         if ($this->cardDAVEnabled && $this->calDAVEnabled) {
-            $this->server->addPlugin(new BirthdayCalendarPlugin($this->birthdayService));
+            $this->server->addPlugin(new BirthdayCalendarPlugin($this->birthdayService, $calendarBackend));
         }
 
         // WebDAV plugins

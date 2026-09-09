@@ -2,8 +2,11 @@
 
 namespace App\Repository;
 
+use App\Entity\Calendar;
 use App\Entity\CalendarInstance;
+use App\Entity\CalendarObject;
 use App\Entity\Principal;
+use App\Entity\SchedulingObject;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -37,11 +40,11 @@ class CalendarInstanceRepository extends ServiceEntityRepository
             return $query->addSelect('p.displayName', 'p.email')
                 ->getQuery()
                 ->getArrayResult();
-        } else {
-            // Returns CalendarInstances as objects
-            return $query->getQuery()
-                ->getResult();
         }
+
+        // Returns CalendarInstances as objects
+        return $query->getQuery()
+            ->getResult();
     }
 
     /**
@@ -60,6 +63,30 @@ class CalendarInstanceRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * Returns the instance only if it belongs to the given principal (owner or sharee).
+     */
+    public function findOneForPrincipal(int $id, string $principalUri): ?CalendarInstance
+    {
+        return $this->findOneBy(['id' => $id, 'principalUri' => $principalUri]);
+    }
+
+    /**
+     * Returns the principal's *owner* instance of the given calendar, if any.
+     */
+    public function findOwnerInstanceOfCalendarForPrincipal(int $calendarId, string $principalUri): ?CalendarInstance
+    {
+        return $this->createQueryBuilder('c')
+            ->where('c.calendar = :id')
+            ->setParameter('id', $calendarId)
+            ->andWhere('c.principalUri = :principalUri')
+            ->setParameter('principalUri', $principalUri)
+            ->andWhere('c.access IN (:ownerAccess)')
+            ->setParameter('ownerAccess', CalendarInstance::getOwnerAccesses())
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     public function hasDifferentOwner(int $calendarId, string $principalUri): bool
     {
         return $this->createQueryBuilder('c')
@@ -72,5 +99,64 @@ class CalendarInstanceRepository extends ServiceEntityRepository
             ->setParameter('principalUri', $principalUri)
             ->getQuery()
             ->getSingleScalarResult() > 0;
+    }
+
+    public function findAllSchedulingObjectsForCalendar(int $calendarInstanceId, string $principalUri): array
+    {
+        $objectRepository = $this->getEntityManager()->getRepository(SchedulingObject::class);
+
+        return $objectRepository->createQueryBuilder('s')
+            ->innerJoin(CalendarObject::class, 'c', \Doctrine\ORM\Query\Expr\Join::WITH, 'c.uri = s.uri')
+            ->innerJoin(CalendarInstance::class, 'ci', \Doctrine\ORM\Query\Expr\Join::WITH, 'ci.calendar = c.calendar')
+            ->where('ci.id = :id')
+            // uri is not unique across calendars — two different calendars can have objects with the same uri.
+            // The join should also filter by principaluri as a consequence
+            ->andWhere('s.principalUri = :principalUri')
+            ->setParameter('id', $calendarInstanceId)
+            ->setParameter('principalUri', $principalUri)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Get counts of calendar objects by component type for a calendar instance.
+     *
+     * @param int $calendarId The ID of the calendar
+     *
+     * @return array An associative array with keys 'events', 'notes', 'tasks' containing their respective counts
+     */
+    public function getObjectCountsByComponentType(int $calendarId): array
+    {
+        $objectRepository = $this->getEntityManager()->getRepository(CalendarObject::class);
+
+        // Instead of three separate queries, get all counts in a single query
+        $results = $objectRepository->createQueryBuilder('o')
+            ->select('o.componentType, COUNT(o.id) as count')
+            ->where('o.calendar = :calendarId')
+            ->setParameter('calendarId', $calendarId)
+            ->groupBy('o.componentType')
+            ->getQuery()
+            ->getResult();
+
+        $componentTypeMap = [
+            Calendar::COMPONENT_EVENTS => 'events',
+            Calendar::COMPONENT_NOTES => 'notes',
+            Calendar::COMPONENT_TODOS => 'tasks',
+        ];
+
+        $counts = [
+            'events' => 0,
+            'notes' => 0,
+            'tasks' => 0,
+        ];
+
+        // Map query results to the expected keys
+        foreach ($results as $result) {
+            if (isset($componentTypeMap[$result['componentType']])) {
+                $counts[$componentTypeMap[$result['componentType']]] = (int) $result['count'];
+            }
+        }
+
+        return $counts;
     }
 }
